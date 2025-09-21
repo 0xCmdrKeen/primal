@@ -103,7 +103,7 @@ export type AccountContextStore = {
     showNewNoteForm: () => void,
     hideNewNoteForm: () => void,
     setActiveUser: (user: PrimalUser) => void,
-    addLike: (note: PrimalNote | PrimalArticle | PrimalDVM) => Promise<boolean>,
+    addLike: (note: PrimalNote | PrimalArticle | PrimalDVM, content?: string) => Promise<boolean>,
     setPublicKey: (pubkey: string | undefined) => void,
     updateAccountProfile: (pubkey: string) => void,
     addFollow: (pubkey: string, cb?: (remove: boolean, pubkey: string) => void) => void,
@@ -744,12 +744,12 @@ export function AccountProvider(props: { children: JSXElement }) {
     updateStore('showNewNoteForm', () => false);
   };
 
-  const addLike = async (note: PrimalNote | PrimalArticle | PrimalDVM) => {
+  const addLike = async (note: PrimalNote | PrimalArticle | PrimalDVM, content = "+") => {
     if (store.likes.includes(note.id)) {
       return false;
     }
 
-    const { success } = await sendLike(note, store.proxyThroughPrimal, store.activeRelays, store.relaySettings);
+    const { success } = await sendLike(note, content, store.proxyThroughPrimal, store.activeRelays, store.relaySettings);
 
     if (success) {
       updateStore('likes', (likes) => [ ...likes, note.id]);

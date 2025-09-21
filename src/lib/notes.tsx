@@ -322,9 +322,9 @@ export const sendContentReport = async (noteId: string, pubkey: string, reason: 
 
 }
 
-export const sendLike = async (note: PrimalNote | PrimalArticle | PrimalDVM, shouldProxy: boolean, relays: Relay[], relaySettings?: NostrRelays) => {
+export const sendLike = async (note: PrimalNote | PrimalArticle | PrimalDVM, content: string, shouldProxy: boolean, relays: Relay[], relaySettings?: NostrRelays) => {
   const event = {
-    content: '+',
+    content,
     kind: Kind.Reaction,
     tags: [
       ['e', note.id],
