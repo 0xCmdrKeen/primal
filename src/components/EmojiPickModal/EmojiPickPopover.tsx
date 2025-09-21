@@ -1,10 +1,12 @@
-import { Component, createEffect, createSignal, onCleanup, onMount } from 'solid-js';
+import { Component, createEffect, createMemo, createSignal, onCleanup, onMount, Show } from 'solid-js';
 
 import styles from './EmojiPickPopover.module.scss';
 import { EmojiOption } from '../../types/primal';
 import EmojiPicker from '../EmojiPicker/EmojiPicker';
 import EmojiPickHeader from './EmojiPickHeader';
 import { useAccountContext } from '../../contexts/AccountContext';
+import { defaultEmojiReacts } from '../../constants';
+import { mergeArrays } from '../../utils';
 
 const defaultTerm = 'face';
 
@@ -12,7 +14,9 @@ const EmojiPickPopover: Component<{
   id?: string,
   onClose: (e: MouseEvent | KeyboardEvent) => void,
   onSelect: (emoji: EmojiOption) => void,
+  onMouseLeave?: (e: MouseEvent) => void,
   orientation?: 'up' | 'down',
+  compact?: boolean,
 }> = (props) => {
 
   const account = useAccountContext();
@@ -20,6 +24,18 @@ const EmojiPickPopover: Component<{
   const [emojiSearchTerm, setEmojiSearchTerm] = createSignal(defaultTerm);
   const [focusInput, setFocusInput] = createSignal(false);
   const [showPreset, setShowPreset] = createSignal(true);
+  const [isCompact, setIsCompact] = createSignal(props.compact || false)
+
+  const presetEmoji = createMemo(() => {
+    let preset = account?.emojiHistory || [];
+    if (isCompact()) {
+      // fill up preset with default emoji up to a total of 8
+      const defaultEmoji: EmojiOption[] =
+        defaultEmojiReacts.map(e => ({ name: e, keywords: []}))
+      preset = mergeArrays(preset, defaultEmoji, (a, b) => a.name === b.name).slice(0, 8);
+    }
+    return preset;
+  })
 
   const onKey = (e: KeyboardEvent) => {
     e.stopPropagation();
@@ -74,21 +90,25 @@ const EmojiPickPopover: Component<{
   return (
     <div
       id={props.id}
-      class={`${styles.emojiPickHolder} ${props.orientation && styles[props.orientation]}`}
+      class={`${styles.emojiPickHolder} ${props.orientation && styles[props.orientation]} ${props.compact && styles.compact}`}
+      onMouseLeave={e => props.onMouseLeave && props.onMouseLeave(e)}
       onClick={e => e.stopPropagation()}
     >
       <div
-        class={styles.zapEmojiChangeModal}
+        class={`${styles.zapEmojiChangeModal} ${isCompact() ? styles.compact : ''}`}
       >
-        <EmojiPickHeader
-          focus={focusInput()}
-          onInput={onEmojiSearch}
-          onFilter={setFilter}
-        />
+        <Show when={!isCompact()}>
+          <EmojiPickHeader
+            focus={focusInput()}
+            onInput={onEmojiSearch}
+            onFilter={setFilter}
+          />
+        </Show>
 
         <EmojiPicker
           showPreset={showPreset()}
-          preset={account?.emojiHistory || []}
+          preset={presetEmoji()}
+          presetOnly={isCompact()}
           filter={emojiSearchTerm()}
           onSelect={(emoji: EmojiOption) => {
             props.onSelect(emoji);
@@ -97,6 +117,13 @@ const EmojiPickPopover: Component<{
           }}
           short={props.orientation === 'up'}
         />
+
+        <button
+          class={`${styles.contextButton} ${!isCompact() && styles.hidden}`}
+          onClick={() => setIsCompact(false)}
+        >
+          <div class={styles.contextIcon} ></div>
+        </button>
       </div>
     </div>
   );

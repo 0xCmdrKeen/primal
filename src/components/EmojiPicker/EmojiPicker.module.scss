@@ -26,6 +26,10 @@
     grid-template-columns: repeat(8, 36px);
     grid-gap: 4px;
     margin-bottom: 4px;
+
+    &.flex {
+      display: flex;
+    }
   }
 
   .emojiOption {

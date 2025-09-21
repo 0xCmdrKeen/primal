@@ -16,6 +16,7 @@ const EmojiPicker: Component<{
   id?: string,
   filter: string,
   preset?: EmojiOption[],
+  presetOnly?: boolean,
   showPreset?: boolean,
   short?: boolean,
   onSelect: (emoji: EmojiOption) => void,
@@ -144,10 +145,10 @@ const EmojiPicker: Component<{
       class={`${styles.emojiSuggestions} ${props.short && styles.short}`}
       ref={emojiOptions}
     >
-      <Show when={props.showPreset && presetEmojis.length > 0}>
+      <Show when={props.showPreset && !props.presetOnly && presetEmojis.length > 0}>
         <div class={styles.groupTitle}>{intl.formatMessage(emojiGroups.preset)}</div>
       </Show>
-      <div class={styles.group}>
+      <div class={`${styles.group} ${props.presetOnly && styles.flex}`}>
         <For each={preset()}>
           {(emoji, index) => (
             <button
@@ -163,26 +164,28 @@ const EmojiPicker: Component<{
         </For>
       </div>
 
-      <Show when={props.showPreset}>
+      <Show when={props.showPreset && !props.presetOnly}>
         <div class={styles.groupTitle}>
           {intl.formatMessage(emojiGroups.face)}
         </div>
       </Show>
-      <div class={styles.group}>
-        <For each={emojiResults}>
-          {(emoji, index) => (
-            <button
-              id={`${instanceId}-${index()+preset().length}`}
-              class={`${styles.emojiOption} ${highlightedEmoji() === (index()+preset().length) ? styles.highlight : ''}`}
-              onClick={() => {
-                props.onSelect(emoji);
-              }}
-            >
-              {emoji.name}
-            </button>
-          )}
-        </For>
-      </div>
+      <Show when={!props.presetOnly}>
+        <div class={styles.group}>
+          <For each={emojiResults}>
+            {(emoji, index) => (
+              <button
+                id={`${instanceId}-${index()+preset().length}`}
+                class={`${styles.emojiOption} ${highlightedEmoji() === (index()+preset().length) ? styles.highlight : ''}`}
+                onClick={() => {
+                  props.onSelect(emoji);
+                }}
+              >
+                {emoji.name}
+              </button>
+            )}
+          </For>
+        </div>
+      </Show>
     </div>
   );
 }

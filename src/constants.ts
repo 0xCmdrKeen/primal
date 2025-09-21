@@ -431,6 +431,8 @@ export const defaultZapOptions = [
   { emoji: '👑', amount: 100_000, message: 'Generational wealth 👑' },
 ];
 
+export const defaultEmojiReacts = ['👍', '❤️', '😆', '😮', '😢', '😩']
+
 export const contentScope = 'content';
 export const trendingScope = 'trending';
 
