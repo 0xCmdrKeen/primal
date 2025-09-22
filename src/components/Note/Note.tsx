@@ -1,6 +1,6 @@
 // import { A } from '@solidjs/router';
 import { batch, Component, createEffect, Match, onMount, Show, Switch } from 'solid-js';
-import { PrimalNote, PrimalUser, TopZap, ZapOption } from '../../types/primal';
+import { EmojiOption, PrimalNote, PrimalUser, TopZap, ZapOption } from '../../types/primal';
 import ParsedNote from '../ParsedNote/ParsedNote';
 import NoteFooter from './NoteFooter/NoteFooter';
 
@@ -28,7 +28,7 @@ import { TranslatorProvider } from '../../contexts/TranslatorContext';
 export type NoteReactionsState = {
   bookmarks?: number,
   likes: number,
-  liked: boolean,
+  liked: boolean | EmojiOption,
   reposts: number,
   reposted: boolean,
   replies: number,

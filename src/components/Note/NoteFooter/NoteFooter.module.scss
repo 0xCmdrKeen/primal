@@ -173,6 +173,18 @@
     }
   }
 
+  .emojiType {
+    @include typeDiv;
+    .icon {
+      @include statIcon;
+      background-color: transparent;
+      &.large {
+        font-size: 20px;
+        padding-top: 3px;
+      }
+    }
+  }
+
   .replyType {
     @include typeDiv;
     .icon {

@@ -1,5 +1,5 @@
-import { batch, Component, createEffect, Show } from 'solid-js';
-import { MenuItem, PrimalNote, ZapOption } from '../../../types/primal';
+import { batch, Component, createEffect, createMemo, createSignal, Show } from 'solid-js';
+import { EmojiOption, MenuItem, PrimalNote, ZapOption } from '../../../types/primal';
 import { sendRepost, triggerImportEvents } from '../../../lib/notes';
 
 import styles from './NoteFooter.module.scss';
@@ -24,6 +24,7 @@ import { SetStoreFunction } from 'solid-js/store';
 import BookmarkNote from '../../BookmarkNote/BookmarkNote';
 import { readSecFromStorage } from '../../../lib/localStore';
 import { useNavigate } from '@solidjs/router';
+import EmojiPickPopover from '../../EmojiPickModal/EmojiPickPopover';
 
 export const lottieDuration = () => zapMD.op * 1_000 / zapMD.fr;
 
@@ -154,10 +155,7 @@ const NoteFooter: Component<{
 
   };
 
-  const doLike = async (e: MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
+  const doLike = async (emoji?: EmojiOption) => {
     if (!account) {
       return;
     }
@@ -182,15 +180,22 @@ const NoteFooter: Component<{
     //   return;
     // }
 
-    const success = await account.actions.addLike(props.note);
+    const success = await account.actions.addLike(props.note, emoji?.name);
 
     if (success) {
       batch(() => {
         props.updateState && props.updateState('likes', (l) => l + 1);
-        props.updateState && props.updateState('liked', () => true);
+        props.updateState && props.updateState('liked', () => emoji || true);
       });
+      emoji && account.actions.saveEmoji(emoji);
+      setIsPickingEmoji(false);
     }
   };
+
+  const [isPickingEmoji, setIsPickingEmoji] = createSignal(false);
+  const emojiLiked = createMemo(() => {
+    return typeof props.state.liked !== 'boolean' ? props.state.liked : undefined
+  });
 
   const startZap = (e: MouseEvent | TouchEvent) => {
     e.preventDefault();
@@ -386,9 +391,9 @@ const NoteFooter: Component<{
     }
   });
 
-  const determineOrient = () => {
+  const determineOrient = (size: 'repost' | 'emoji') => {
     const coor = getScreenCordinates(repostMenu);
-    const height = 100;
+    const height = size === 'repost' ? 100 : 300;
     return (coor.y || 0) + height < window.innerHeight + window.scrollY ? 'down' : 'up';
   }
 
@@ -437,14 +442,33 @@ const NoteFooter: Component<{
 
       <NoteFooterActionButton
         note={props.note}
-        onClick={doLike}
-        type="like"
-        highlighted={props.state.liked}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          doLike();
+        }}
+        onMouseEnter={() => !props.state.liked && setIsPickingEmoji(true)}
+        type={emojiLiked() ? "emoji" : "like"}
+        emoji={emojiLiked()}
+        highlighted={!!props.state.liked}
         label={props.state.likes === 0 ? '' : truncateNumber(props.state.likes, 2)}
         title={props.state.likes.toLocaleString()}
         large={props.large}
         noteType={props.noteType}
       />
+
+      <Show when={isPickingEmoji()}>
+        <EmojiPickPopover
+          onClose={() => setIsPickingEmoji(false)}
+          onMouseLeave={() => setIsPickingEmoji(false)}
+          onSelect={(emoji) => {
+            setIsPickingEmoji(false);
+            doLike(emoji);
+          }}
+          orientation={determineOrient('emoji')}
+          compact={true}
+        />
+      </Show>
 
       <button
         id={`btn_repost_${props.note.post.id}`}
@@ -469,7 +493,7 @@ const NoteFooter: Component<{
             id={`repost_menu_${props.note.post.id}`}
             items={repostMenuItems}
             position="note_footer"
-            orientation={determineOrient()}
+            orientation={determineOrient('repost')}
             hidden={!props.state.isRepostMenuVisible}
           />
         </div>
