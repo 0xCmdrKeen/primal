@@ -134,7 +134,8 @@ const ReactionsModal: Component<{
 
     const subId = `nr_l_${props.noteId}_${APP_ID}`;
 
-    const users: any[] = [];
+    const users: Record<string, any> = {};
+    const reactions: any[] = [];
 
     const unsub = subsTo(subId, {
       onEvent: (_, content) => {
@@ -148,11 +149,17 @@ const ReactionsModal: Component<{
           user.npub = hexToNpub(content.pubkey);
           user.created_at = content.created_at;
 
-          users.push(user);
+          users[content.pubkey] = { ...user };
+        } else if (content?.kind === Kind.Reaction) {
+          reactions.push(content)
         }
       },
       onEose: () => {
-        setLikeList((likes) => [ ...likes, ...users ]);
+        const likeList = reactions.map((reaction => ({
+          ...reaction,
+          user: users[reaction.pubkey],
+        }))).filter(r => r.user);
+        setLikeList((likes) => [ ...likes, ...likeList ]);
         loadedLikes = likeList.length;
         setIsFetching(() => false);
         unsub();
@@ -446,23 +453,28 @@ const ReactionsModal: Component<{
                   </Show>
                 }
               >
-                {admirer =>
+                {reaction =>
                   <A
-                    href={app?.actions.profileLink(admirer.npub) || ''}
+                    href={app?.actions.profileLink(reaction.user.npub) || ''}
                     class={styles.likeItem}
                     onClick={props.onClose}
                   >
-                    <div class={styles.likeIcon}></div>
+                    <Show when={reaction.content !== '+'}
+                          fallback={<div class={styles.likeIcon}></div>}>
+                      <div class={styles.emojiReaction}>
+                        {reaction.content}
+                      </div>
+                    </Show>
                     <Avatar
-                      user={admirer}
-                      src={admirer.picture}
+                      user={reaction.user}
+                      src={reaction.user.picture}
                       size="vs"
                     />
                     <div class={styles.userName}>
                       <div class={styles.name}>
-                        {userName(admirer)}
+                        {userName(reaction.user)}
                       </div>
-                      <VerificationCheck user={admirer} />
+                      <VerificationCheck user={reaction.user} />
                     </div>
                   </A>
                 }

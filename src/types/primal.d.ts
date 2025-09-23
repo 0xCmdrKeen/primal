@@ -35,6 +35,16 @@ export type NostrUserContent = {
   tags: string[][],
 };
 
+export type NostrReactionContent = {
+  kind: Kind.Reaction,
+  content: string,
+  id: string,
+  created_at?: number,
+  pubkey: string,
+  sig: string,
+  tags: string[][],
+};
+
 export type NostrStatsContent = {
   kind: Kind.NoteStats,
   content: string,
@@ -500,6 +510,7 @@ export type PrimalLeaderboard= {
 export type NostrEventContent =
   NostrNoteContent |
   NostrUserContent |
+  NostrReactionContent |
   NostrStatsContent |
   NostrNetStatsContent |
   NostrLegendStatsContent |

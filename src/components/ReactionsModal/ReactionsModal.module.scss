@@ -106,6 +106,15 @@
     mask: url(../../assets/icons/heart.svg) no-repeat 0px 0 / 18px 18px;
   }
 
+  .emojiReaction {
+    width: 22px;
+    height: 22px;
+    font-size: 18px;
+    margin-left: -2px;
+    display: inline-block;
+    overflow: clip;
+  }
+
   .userName {
     display: flex;
     justify-items: flex-start;
