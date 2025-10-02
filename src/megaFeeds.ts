@@ -31,7 +31,7 @@ import { getRecomendedArticleIds, getScoredUsers } from "./lib/search";
 import { fetchArticles } from "./handleNotes";
 import { APP_ID } from "./App";
 import { decodeIdentifier } from "./lib/keys";
-import { getExploreMedia, getExplorePeople, getExploreTopics, getExploreZaps } from "./lib/profile";
+import { getExploreMedia, getExplorePeople, getExploreTopics, getExploreZaps, getUserProfiles } from "./lib/profile";
 import { convertToUser, emptyUser } from "./stores/profile";
 import { emptyStats } from "./contexts/ProfileContext";
 import { getMessageCounts, getNewMessages, getOldMessages } from "./lib/messages";
@@ -608,6 +608,31 @@ export const fetchLeaderboardThread = (
   });
 }
 
+export const fetchPeople = (
+  pubkeys: string[],
+  subId: string,
+) => {
+  return new Promise<MegaFeedResults>((resolve) => {
+    let page: MegaFeedPage = {...emptyMegaFeedPage()};
+
+    const unsub = subsTo(subId, {
+      onEvent: (_, content) => {
+        content && updateFeedPage(page, content);
+      },
+      onEose: () => {
+        unsub();
+        resolve(pageResolve(page));
+      },
+      onNotice: (_, reason) => {
+        unsub();
+        resolve({ ...emptyMegaFeedResults() });
+      }
+    });
+
+    getUserProfiles(pubkeys, subId);
+  });
+}
+
 export const pageResolve = (page: MegaFeedPage) => {
 
   // If there are reposts that have empty content,
@@ -760,12 +785,14 @@ export const updateFeedPage = (page: MegaFeedPage, content: NostrEventContent) =
       }
     }
 
-    let eventId = (zapInfo.tags.find((t: string[]) => t[0] === 'e' || t[0] === 'a') || [])[1];
+    let eventId = (zapInfo.tags.find((t: string[]) => t[0] === 'a') || [])[1];
 
-    if (eventId.includes(':')) {
+    if (eventId && eventId.includes(':')) {
       const [kind, pubkey, identifier] = eventId.split(':');
 
       eventId = nip19.naddrEncode({ kind, pubkey, identifier })
+    } else {
+      eventId = (zapInfo.tags.find((t: string[]) => t[0] === 'e') || [])[1];
     }
 
     const topZap: TopZap = {
@@ -775,6 +802,7 @@ export const updateFeedPage = (page: MegaFeedPage, content: NostrEventContent) =
       message: zapInfo.content,
       eventId,
     };
+
 
     const oldZaps = page.topZaps[eventId];
 

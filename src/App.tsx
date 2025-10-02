@@ -16,6 +16,11 @@ import { AppProvider } from './contexts/AppContext';
 import { ReadsProvider } from './contexts/ReadsContext';
 import { AdvancedSearchProvider } from './contexts/AdvancedSearchContext';
 import { DMProvider } from './contexts/DMContext';
+import 'media-chrome';
+import "media-chrome/media-theme-element";
+import 'hls-video-element';
+import 'videojs-video-element';
+
 
 
 export const version = import.meta.env.PRIMAL_VERSION;
@@ -25,6 +30,12 @@ const App: Component = () => {
 
   onMount(() => {
     connect();
+
+    // if ('serviceWorker' in navigator) {
+    //   navigator.serviceWorker.register('./sw.js')
+    //     .then(reg => console.log('SW registered: ', reg))
+    //     .catch(err => console.log('SW registration failed: ', err));
+    // }
   });
 
   onCleanup(() => {

@@ -3,6 +3,7 @@ import { decodeIdentifier, hexToNpub } from '../../lib/keys';
 import {
   getLinkPreview,
   getParametrizedEvent,
+  is3gppVideo,
   isAddrMention,
   isAppleMusic,
   isCustomEmoji,
@@ -27,6 +28,7 @@ import {
   isWavelake,
   isWebmVideo,
   isYouTube,
+  isZapStream,
   linkPreviews,
 } from '../../lib/notes';
 import { convertToUser, truncateNpub, userName } from '../../stores/profile';
@@ -53,7 +55,7 @@ import { useMediaContext } from '../../contexts/MediaContext';
 import { hookForDev } from '../../lib/devTools';
 import { getMediaUrl as getMediaUrlDefault } from "../../lib/media";
 import NoteImage from '../NoteImage/NoteImage';
-import { createStore } from 'solid-js/store';
+import { createStore, unwrap } from 'solid-js/store';
 import { addrRegex, hashtagCharsRegex, Kind, linebreakRegex, lnUnifiedRegex, noteRegex, primalUserRegex, profileRegex, shortMentionInWords, shortNoteChars, shortNoteWords, specialCharsRegex, urlExtractRegex, userMentionUrlRegex } from '../../constants';
 import { useIntl } from '@cookbook/solid-intl';
 import { actions } from '../../translations';
@@ -72,6 +74,9 @@ import ProfileNoteZap from '../ProfileNoteZap/ProfileNoteZap';
 import { parseBolt11 } from '../../utils';
 import SimpleArticlePreview from '../ArticlePreview/SimpleArticlePreview';
 import NostrImage from '../NostrImage/NostrImage';
+import { StreamingData } from '../../lib/streaming';
+import LiveEventPreview from '../LiveVideo/LiveEventPreview';
+import ExternalLiveEventPreview from '../LiveVideo/ExternalLiveEventPreview';
 
 const groupGridLimit = 5;
 
@@ -368,6 +373,14 @@ const ParsedNote: Component<{
           return;
         }
 
+        if (is3gppVideo(token)) {
+          removeLinebreaks('video');
+          isAfterEmbed = true;
+          lastSignificantContent = 'video';
+          updateContent(content, 'video', token, { videoType: 'video/3gpp'});
+          return;
+        }
+
         if (isYouTube(token)) {
           removeLinebreaks('youtube');
           isAfterEmbed = true;
@@ -437,6 +450,14 @@ const ParsedNote: Component<{
           isAfterEmbed = true;
           lastSignificantContent = 'rumble';
           updateContent(content, 'rumble', token);
+          return;
+        }
+
+        if (isZapStream(token)) {
+          removeLinebreaks('zapstream');
+          isAfterEmbed = true;
+          lastSignificantContent = 'zapstream';
+          updateContent(content, 'zapstream', token);
           return;
         }
 
@@ -754,6 +775,11 @@ const ParsedNote: Component<{
           <source src={token} type={item.meta?.videoType} />
         </video>;
 
+        video.addEventListener('click', (e: MouseEvent) => {
+          e.stopPropagation();
+          e.preventDefault();
+        })
+
         media?.actions.addVideo(video as HTMLVideoElement);
 
         return video;
@@ -963,6 +989,20 @@ const ParsedNote: Component<{
           allow="encrypted-media"
           sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
           title="TIDAL Embed Player"
+        />;
+      }}
+    </For>
+  };
+
+  const renderZapStream = (item: NoteContent, index?: number) => {
+    return <For each={item.tokens}>
+      {(token) => {
+        if (isNoteTooLong()) return;
+
+        setWordsDisplayed(w => w + shortMentionInWords);
+
+        return <ExternalLiveEventPreview
+          url={token}
         />;
       }}
     </For>
@@ -1196,16 +1236,29 @@ const ParsedNote: Component<{
           kind: data.kind,
           pubkey: data.pubkey,
           identifier: data.identifier || '',
+          relays: data.relays || [],
         });
 
         if (data.kind === Kind.LongForm) {
           const mentionedArticles = rn.mentionedArticles;
 
+          const decodedKeys = Object.entries(mentionedArticles || {}).map(entry => ({ decoded: decodeIdentifier(entry[0]), mention: entry[1] }));
+
           if (!mentionedArticles || (props.embedLevel || 0) > 1) {
             return unknownMention(reEncoded, token);
           }
 
-          const mention = mentionedArticles[reEncoded];
+          // const mention = mentionedArticles[id];
+          const mention = decodedKeys.reduce<PrimalArticle | undefined>((acc, d) => {
+            const dta = d.decoded.data;
+
+            // @ts-ignore
+            if (data.identifier === dta.identifier && data.kind === dta.kind && data.pubkey === dta.pubkey) {
+              return d.mention;
+            }
+
+            return acc;
+          }, undefined);
 
           if (!mention) {
             return unknownMention(id, token);
@@ -1214,9 +1267,45 @@ const ParsedNote: Component<{
           return renderLongFormMention(mention, index);
         }
 
+        if (data.kind === Kind.LiveEvent) {
+
+          const mentionedLiveEvents = rn.mentionedLiveEvents;
+
+
+          const decodedKeys = Object.entries(mentionedLiveEvents || {}).map(entry => ({ decoded: decodeIdentifier(entry[0]), mention: entry[1] }));
+
+          if (!mentionedLiveEvents || (props.embedLevel || 0) > 1) {
+            return unknownMention(reEncoded, token);
+          }
+
+          // const mention = mentionedArticles[id];
+          const mention = decodedKeys.reduce<StreamingData | undefined>((acc, d) => {
+            const dta = d.decoded.data;
+
+            // @ts-ignore
+            if (data.identifier === dta.identifier && data.kind === dta.kind && data.pubkey === dta.pubkey) {
+              return d.mention;
+            }
+
+            return acc;
+          }, undefined);
+
+          if (!mention) {
+            return unknownMention(id, token);
+          }
+
+          return renderLiveEvent(mention, index);
+        }
+
         return unknownMention(id, token);
       }}
     </For>
+  }
+
+  const renderLiveEvent = (mention: StreamingData, index?: number) => {
+    return <LiveEventPreview
+      stream={mention}
+    />;
   }
 
   const renderLongFormMention = (mention: PrimalArticle | undefined, index?: number) => {
@@ -1307,6 +1396,11 @@ const ParsedNote: Component<{
             ...(props.note.mentionedZaps || {}),
           }
 
+          const mentionedLiveEvents = {
+            ...(rn.mentionedLiveEvents || {}),
+            ...(props.note.mentionedLiveEvents || {}),
+          }
+
           if (kind === undefined) {
             let f: any = mentionedNotes && mentionedNotes[hex];
             if (!f) {
@@ -1368,6 +1462,7 @@ const ParsedNote: Component<{
                 // @ts-ignore
                 identifier: eventId.identifier || '',
               });
+
               const ment = mentionedArticles && mentionedArticles[reEncoded];
 
               link = unknownMention(id, token);
@@ -1477,8 +1572,30 @@ const ParsedNote: Component<{
               }
 
             }
+          }
 
+          if (kind === Kind.LiveEvent) {
+            if (!props.noLinks) {
+              const reEncoded = nip19.naddrEncode({
+                // @ts-ignore
+                kind,
+                // @ts-ignore
+                pubkey: eventId.pubkey || '',
+                // @ts-ignore
+                identifier: eventId.identifier || '',
+              });
 
+              const ment = mentionedLiveEvents && mentionedLiveEvents[reEncoded];
+
+              link = unknownMention(id, token);
+
+              if (ment) {
+                setWordsDisplayed(w => w + shortMentionInWords);
+
+                // @ts-ignore
+                link = renderLiveEvent(ment, index);
+              }
+            }
           }
 
         } catch (e) {
@@ -1811,6 +1928,7 @@ const ParsedNote: Component<{
       wavelake: renderWavelake,
       rumble: renderRumble,
       tidal: renderTidal,
+      zapstream: renderZapStream,
       link: renderLinks,
       notemention: renderNoteMention,
       usermention: renderUserMention,

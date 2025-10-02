@@ -73,7 +73,6 @@ const ProfileDesktop: Component = () => {
   const [showContext, setContext] = createSignal(false);
   const [confirmReportUser, setConfirmReportUser] = createSignal(false);
   const [confirmMuteUser, setConfirmMuteUser] = createSignal(false);
-  const [openQr, setOpenQr] = createSignal(false);
 
   const [followsModal, setFollowsModal] = createSignal<'follows' | 'followers' | false>(false);
 
@@ -697,6 +696,11 @@ const ProfileDesktop: Component = () => {
     return re.slice(0, 5).reverse();
   }
 
+
+  const getStream = () => {
+    return media?.actions.getStream(profile?.profileKey || 'n/a');
+  }
+
   return (
     <>
       <PageTitle title={
@@ -741,6 +745,7 @@ const ProfileDesktop: Component = () => {
               notes={profile?.sidebarNotes.notes}
               articles={profile?.sidebarArticles.notes}
               profile={profile?.userProfile}
+              stream={getStream()}
             />
           </Show>
         </TransitionGroup>
@@ -802,7 +807,7 @@ const ProfileDesktop: Component = () => {
               </div>
 
               <ButtonSecondary
-                onClick={() => setOpenQr(true)}
+                onClick={() => profile?.userProfile && app?.actions.openProfileQr(profile?.userProfile)}
                 shrink={true}
               >
                 <div class={styles.qrIcon}></div>
@@ -1075,12 +1080,6 @@ const ProfileDesktop: Component = () => {
           following: profile?.userStats?.follows_count || 0,
           followers: profile?.userStats?.followers_count || 0,
         }}
-      />
-
-      <ProfileQrCodeModal
-        open={openQr()}
-        onClose={() => setOpenQr(false)}
-        profile={profile?.userProfile}
       />
     </>
   )

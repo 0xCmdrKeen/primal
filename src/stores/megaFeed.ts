@@ -6,6 +6,7 @@ import { MegaFeedPage, MegaRepostInfo, NostrEvent, NostrNoteContent, PrimalArtic
 import { convertToUser } from "./profile";
 import { parseBolt11, selectRelayTags } from "../utils";
 import { logError } from "../lib/logger";
+import { StreamingData } from "../lib/streaming";
 
 
 export const noActions = (id: string) => ({
@@ -157,6 +158,7 @@ export const extractMentions = (page: MegaFeedPage, note: NostrNoteContent) => {
   let mentionedUsers: Record<string, PrimalUser> = {};
   let mentionedHighlights: Record<string, any> = {};
   let mentionedArticles: Record<string, PrimalArticle> = {};
+  let mentionedLiveEvents: Record<string, StreamingData> = {};
   let mentionedZaps: Record<string, PrimalZap> = {};
 
   for (let i = 0;i<mentionIds.length;i++) {
@@ -239,6 +241,8 @@ export const extractMentions = (page: MegaFeedPage, note: NostrNoteContent) => {
     if ([Kind.LongForm, Kind.LongFormShell].includes(mention.kind)) {
 
       const { coordinate, naddr } = encodeCoordinate(mention, Kind.LongForm);
+      const [kind, pubkey, identifier] = coordinate.split(':');
+      const naddrShort = nip19.naddrEncode({ kind: parseInt(kind), pubkey, identifier });
 
       const wordCount = wordCounts[mention.id] || 0;
 
@@ -262,6 +266,7 @@ export const extractMentions = (page: MegaFeedPage, note: NostrNoteContent) => {
         topZaps: page.topZaps[mention.id] || [],
         naddr,
         noteId: naddr,
+        noteIdShort: naddrShort,
         coordinate,
         msg: mention,
         mentionedNotes,
@@ -365,6 +370,29 @@ export const extractMentions = (page: MegaFeedPage, note: NostrNoteContent) => {
         zappedKind,
       };
     }
+
+    if ([Kind.LiveEvent].includes(mention.kind)) {
+      const { coordinate, naddr } = encodeCoordinate(mention, Kind.LiveEvent);
+      const [kind, pubkey, identifier] = coordinate.split(':');
+      const naddrShort = nip19.naddrEncode({ kind: parseInt(kind), pubkey, identifier });
+
+      const streamData = {
+        id: (mention.tags?.find((t: string[]) => t[0] === 'd') || [])[1],
+        url: (mention.tags?.find((t: string[]) => t[0] === 'streaming') || [])[1],
+        image: (mention.tags?.find((t: string[]) => t[0] === 'image') || [])[1],
+        status: (mention.tags?.find((t: string[]) => t[0] === 'status') || [])[1],
+        starts: parseInt((mention.tags?.find((t: string[]) => t[0] === 'starts') || ['', '0'])[1]),
+        summary: (mention.tags?.find((t: string[]) => t[0] === 'summary') || [])[1],
+        title: (mention.tags?.find((t: string[]) => t[0] === 'title') || [])[1],
+        client: (mention.tags?.find((t: string[]) => t[0] === 'client') || [])[1],
+        currentParticipants: parseInt((mention.tags?.find((t: string[]) => t[0] === 'current_participants') || ['', '0'])[1] || '0'),
+        pubkey: mention.pubkey,
+        hosts: (mention.tags || []).filter(t => t[0] === 'p' && t[3].toLowerCase() === 'host').map(t => t[1]),
+        participants: (mention.tags || []).filter(t => t[0] === 'p').map(t => t[1]),
+      };
+
+      mentionedLiveEvents[naddr] = { ...streamData };
+    }
   }
 
   if (userMentionIds && userMentionIds.length > 0) {
@@ -390,6 +418,7 @@ export const extractMentions = (page: MegaFeedPage, note: NostrNoteContent) => {
     mentionedUsers,
     mentionedHighlights,
     mentionedZaps,
+    mentionedLiveEvents,
   };
 }
 
@@ -487,6 +516,7 @@ export const convertToNotesMega = (page: MegaFeedPage) => {
       mentionedUsers,
       mentionedHighlights,
       mentionedZaps,
+      mentionedLiveEvents,
     } = extractMentions(page, note);
 
     const eventPointer: nip19.EventPointer = {
@@ -530,6 +560,7 @@ export const convertToNotesMega = (page: MegaFeedPage) => {
       mentionedHighlights,
       mentionedArticles,
       mentionedZaps,
+      mentionedLiveEvents,
       replyTo: replyTo && replyTo[1],
       tags: note.tags,
       id: note.id,
@@ -558,12 +589,12 @@ export const convertToReadsMega = (page: MegaFeedPage) => {
   for (i=0;i<page.reads.length;i++) {
     const read = page.reads[i];
     const { coordinate, naddr } = encodeCoordinate(read, Kind.LongForm);
+    const [kind, pubkey, identifier] = coordinate.split(':');
+    const naddrShort = nip19.naddrEncode({ kind: parseInt(kind), pubkey, identifier });
     const author = convertToUser(page.users[read.pubkey], read.pubkey);
     const stat = page.noteStats[read.id];
-    const topZaps = page.topZaps[naddr] || page.topZaps[read.id] || [];
+    const topZaps = page.topZaps[naddrShort] || page.topZaps[read.id] || [];
     const wordCount = (page.wordCount || {})[read.id] || 0;
-
-
 
     const repost = read.kind === Kind.Repost ? extractRepostInfo(page, read) : undefined;
     const tags = read.tags || [];
@@ -583,6 +614,7 @@ export const convertToReadsMega = (page: MegaFeedPage) => {
       mentionedUsers,
       mentionedHighlights,
       mentionedZaps,
+      mentionedLiveEvents,
     } = extractMentions(page, read);
 
     const published = read.tags.reduce<number>((acc, t) => {
@@ -605,6 +637,7 @@ export const convertToReadsMega = (page: MegaFeedPage) => {
       topZaps,
       naddr,
       noteId: naddr,
+      noteIdShort: naddrShort,
       coordinate,
       msg: {
         ...read,
@@ -615,6 +648,7 @@ export const convertToReadsMega = (page: MegaFeedPage) => {
       mentionedHighlights,
       mentionedArticles,
       mentionedZaps,
+      mentionedLiveEvents,
       wordCount,
       noteActions: (page.noteActions && page.noteActions[read.id]) ?? noActions(read.id),
       bookmarks: stat?.bookmarks || 0,
@@ -681,6 +715,7 @@ export const convertToDraftsMega = (page: MegaFeedPage) => {
       pubkey: draft.pubkey,
       created_at: draft.created_at || 0,
       msg: { ...draft },
+      noteId: `ndraft1${draft.id}`,
     }
 
     drafts.push(newDraft);

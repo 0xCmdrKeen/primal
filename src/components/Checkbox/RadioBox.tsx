@@ -5,7 +5,7 @@ import { hookForDev } from '../../lib/devTools';
 import styles from './Checkbox.module.scss';
 import { RadioGroup } from '@kobalte/core/radio-group';
 
-export type RadioBoxOption = { value: string, label: string }
+export type RadioBoxOption = { value: string, label: string, description?: string }
 
 const RadioBox: Component<{
   id?: string,

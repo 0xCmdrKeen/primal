@@ -103,6 +103,7 @@ export enum Kind  {
   ChannelHideMessage = 43,
   ChannelMuteUser = 44,
 
+  LiveChatMessage = 1_311,
   ReportContent = 1_984,
 
   Subscribe = 7_001,
@@ -115,6 +116,7 @@ export enum Kind  {
   Bookmarks = 10_003,
   Blossom = 10_063,
   TierList = 17_000,
+  StreamMuteList = 10_555,
 
   CategorizedPeople = 30_000,
   LongForm = 30_023,
@@ -170,6 +172,7 @@ export enum Kind  {
   LegendLeaderboard=10_000_170,
   PremiumLeaderboard=10_000_171,
   ArticlesStats=10_000_174,
+  LiveEventStats=10_000_176,
 
   WALLET_OPERATION = 10_000_300,
   WALLET_NWC_ACTIVE = 10_000_802,
@@ -179,6 +182,8 @@ export enum Kind  {
   OrderHistory = 10_000_605,
 
   LongFormShell = 10_030_023,
+
+  LiveChatReload = 11_000_001,
 }
 
 export const relayConnectingTimeout = 1000;
@@ -207,6 +212,8 @@ export enum NotificationType {
   YOUR_POST_WAS_HIGHLIGHTED=301,
   YOUR_POST_WAS_BOOKMARKED=302,
   YOUR_POST_HAD_REACTION=303,
+
+  LIVE_EVENT_STARTED=501,
 };
 
 export const mentionedNotifTypes = [
@@ -217,6 +224,7 @@ export const mentionedNotifTypes = [
   NotificationType.POST_YOUR_POST_WAS_MENTIONED_IN_WAS_ZAPPED,
   NotificationType.POST_YOUR_POST_WAS_MENTIONED_IN_WAS_LIKED,
   NotificationType.POST_YOUR_POST_WAS_MENTIONED_IN_WAS_REPOSTED,
+  NotificationType.LIVE_EVENT_STARTED,
 ];
 
 
@@ -273,6 +281,8 @@ export const notificationTypeUserProps: Record<string, string> = {
   [NotificationType.YOUR_POST_WAS_HIGHLIGHTED]: 'who_highlighted_it',
   [NotificationType.YOUR_POST_WAS_BOOKMARKED]: 'who_bookmarked_it',
   [NotificationType.YOUR_POST_HAD_REACTION]: 'who_reacted',
+
+  [NotificationType.LIVE_EVENT_STARTED]: 'host',
 }
 
 export const notificationTypeNoteProps: Record<string, string> = {
@@ -301,6 +311,8 @@ export const notificationTypeNoteProps: Record<string, string> = {
   [NotificationType.YOUR_POST_WAS_BOOKMARKED]: 'your_post',
   [NotificationType.YOUR_POST_HAD_REACTION]: 'your_post',
 
+  [NotificationType.LIVE_EVENT_STARTED]: 'live_event_id',
+
 }
 
 export const usernameRegex = /^[a-zA-Z0-9\-\_]+$/;
@@ -308,6 +320,7 @@ export const usernameRegex = /^[a-zA-Z0-9\-\_]+$/;
 // export const magnetRegex = /(magnet:[\S]+)/i;
 // export const tweetUrlRegex = /https?:\/\/twitter\.com\/(?:#!\/)?(\w+)\/status(?:es)?\/(\d+)/;
 // export const tidalRegex = /tidal\.com\/(?:browse\/)?(\w+)\/([a-z0-9-]+)/i;
+export const zapStreamEmbedRegex = /zap\.stream\/.+/i;
 export const tidalEmbedRegex = /embed\.tidal\.com\/.+/i;
 export const spotifyRegex = /open\.spotify\.com\/(track|album|playlist|episode)\/([a-zA-Z0-9]+)/;
 export const twitchRegex = /twitch\.tv\/([a-z0-9_]+$)/i;
@@ -346,18 +359,18 @@ export const editMentionRegex = /(?:\s|^)@\`(.*?)\`/ig;
 export const imageRegex = /(http(s?):)([/|.|\w|\s|-])*\.(?:png|jpg|jpeg|webp|gif|format=png)/;
 export const imageRegexG = /(http(s?):)([/|.|\w|\s|-])*\.(?:png|jpg|jpeg|webp|gif|format=png)/g;
 export const imageRegexEnd = /(http(s?):)([/|.|\w|\s|-])*\.(?:png|jpg|jpeg|webp|gif|format=png)$/;
-export const videoRegex = /(http(s?):)([/|.|\w|\s|-])*\.(?:mp4|mov|ogg|webm)/;
-export const videoRegexG = /(http(s?):)([/|.|\w|\s|-])*\.(?:mp4|mov|ogg|webm)/g;
+export const videoRegex = /(http(s?):)([/|.|\w|\s|-])*\.(?:mp4|mov|ogg|webm|3gp)/;
+export const videoRegexG = /(http(s?):)([/|.|\w|\s|-])*\.(?:mp4|mov|ogg|webm|3gp)/g;
 
-export const imageOrVideoRegexG = /(http(s?):)([/|.|\w|\s|-])*\.(?:png|jpg|jpeg|webp|gif|mp4|mov|ogg|webm|format=png)/g;
-export const imageOrVideoRegex = /(http(s?):)([/|.|\w|\s|-])*\.(?:png|jpg|jpeg|webp|gif|mp4|mov|ogg|webm|format=png)/;
+export const imageOrVideoRegexG = /(http(s?):)([/|.|\w|\s|-])*\.(?:png|jpg|jpeg|webp|gif|mp4|mov|ogg|webm|3gp|format=png)/g;
+export const imageOrVideoRegex = /(http(s?):)([/|.|\w|\s|-])*\.(?:png|jpg|jpeg|webp|gif|mp4|mov|ogg|webm|3gp|format=png)/;
 
 export const eventRegexLocal = /(?:\s|^)(nostr:)?((note|nevent|naddr)1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)\b/;
 export const eventRegexG = /(?:\s|^)(nostr:)?((note|nevent|naddr)1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)\b/g;
 export const eventRegexNostrless = /((note|nevent|naddr)1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)\b/;
 export const mentionRegexNostrless = /((note|nevent|naddr|nprofile|npub)1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)\b/;
 
-export const mdImageRegex = /(https?:\/\/.*\.(?:png|jpg))|\!\[(.*?)\]\((https?:\/\/.*\.(?:png|jpg))\)/i;
+export const mdImageRegex = /(https?:\/\/.*\.(?:png|jpg|jpeg|webp|gif|format=png))|\!\[(.*?)\]\((https?:\/\/.*)\)/i;
 
 export const specialCharsRegex = /[^A-Za-z0-9]/;
 export const hashtagCharsRegex = /[^A-Za-z0-9\-\_]/;

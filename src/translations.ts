@@ -307,6 +307,11 @@ export const actions = {
     defaultMessage: 'Send ?',
     description: 'Label for report user confirmation',
   },
+  muteUserConfirmTitle: {
+    id: 'actions.muteUserConfirmTitle',
+    defaultMessage: 'Mute {name}',
+    description: 'Title for mute user confirmation dialog',
+  },
   muteUserConfirm: {
     id: 'actions.muteUserConfirm',
     defaultMessage: 'Add {name} to your mute list?',
@@ -315,7 +320,7 @@ export const actions = {
   muteThreadConfirm: {
     id: 'actions.muteUserConfirm',
     defaultMessage: 'Mute this thread?',
-    description: 'Label for mute user confirmation',
+    description: 'Label for mute thread confirmation',
   },
   unmute: {
     id: 'actions.unmute',
@@ -397,6 +402,48 @@ export const actions = {
       id: 'actions.profileContext.reportUser',
       defaultMessage: 'Report user',
       description: 'Label for reporting user from profile context menu',
+    },
+  },
+  streamContext: {
+    copyLink: {
+      id: 'actions.streamContext.copyLink',
+      defaultMessage: 'Copy Stream Link',
+      description: 'Label for copy stream link from context menu',
+    },
+    copyId: {
+      id: 'actions.streamContext.copyId',
+      defaultMessage: 'Copy Stream ID',
+      description: 'Label for copy stream ID from context menu',
+    },
+    copyRaw: {
+      id: 'actions.streamContext.copyRaw',
+      defaultMessage: 'Copy Raw Data',
+      description: 'Label for copy stream raw data from context menu',
+    },
+    muteAuthor: {
+      id: 'actions.streamContext.muteAuthor',
+      defaultMessage: 'Mute User',
+      description: 'Label for muting user from context menu',
+    },
+    unmuteAuthor: {
+      id: 'actions.streamContext.unmuteAuthor',
+      defaultMessage: 'Unmute User',
+      description: 'Label for unmuting user from context menu',
+    },
+    reportContent: {
+      id: 'actions.streamContext.reportContent',
+      defaultMessage: 'Report Content',
+      description: 'Label for reporting user from context menu',
+    },
+    requestDelete: {
+      id: 'actions.streamContext.requestDelete',
+      defaultMessage: 'Request Delete',
+      description: 'Label for edit article from context menu',
+    },
+    quoteStream: {
+      id: 'actions.streamContext.quoteStream',
+      defaultMessage: 'Quote Stream',
+      description: 'Label for quoting stream from context menu',
     },
   },
   noteContext: {
@@ -947,6 +994,8 @@ export const notificationTypeTranslations: Record<string, string> = {
   [NotificationType.YOUR_POST_WAS_HIGHLIGHTED]: 'highlighted your',
   [NotificationType.YOUR_POST_WAS_BOOKMARKED]: 'bookmarked your',
   [NotificationType.YOUR_POST_HAD_REACTION]: 'reacted to your',
+
+  [NotificationType.LIVE_EVENT_STARTED]: 'is live',
 }
 
 export const notificationsNew: Record<number, MessageDescriptor> = Object.values(NotificationType).reduce((acc, type) => ({
@@ -2172,6 +2221,26 @@ export const toast = {
     defaultMessage: 'Nostr extension is required to send events',
     description: 'Toast message indicating no extension was found',
   },
+  streamPrimalLinkCoppied: {
+    id: 'toast.streamPrimalLinkCoppied',
+    defaultMessage: 'Stream link copied',
+    description: 'Confirmation message that the stream\'s link has been copied',
+  },
+  streamIdCoppied: {
+    id: 'toast.streamIdCoppied',
+    defaultMessage: 'Stream id copied',
+    description: 'Confirmation message that the stream\'s id has been copied',
+  },
+  streamRawDataCoppied: {
+    id: 'toast.streamRawDataCoppied',
+    defaultMessage: 'Stream raw data copied',
+    description: 'Confirmation message that the stream\'s raw data has been copied',
+  },
+  streamAuthorNpubCoppied: {
+    id: 'toast.streamAuthorNpubCoppied',
+    defaultMessage: 'Stream author npub copied',
+    description: 'Confirmation message that the stream\'s author npub has been copied',
+  },
   noteNostrLinkCoppied: {
     id: 'toast.noteNostrLinkCoppied',
     defaultMessage: 'Note nostr link copied',
@@ -2239,12 +2308,12 @@ export const toast = {
   },
   zapUnavailable: {
     id: 'toast.zapUnavailable',
-    defaultMessage: 'Author of this note cannot be zapped',
+    defaultMessage: 'Author of this note cannot be zapped because they didn\'t setup their lightning address',
     description: 'Toast message indicating user cannot receieve a zap',
   },
   zapDVMUnavailable: {
     id: 'toast.zapDVMUnavailable',
-    defaultMessage: 'Author of this feed cannot be zapped',
+    defaultMessage: 'Author of this note cannot be zapped because they didn\'t setup their lightning address',
     description: 'Toast message indicating user cannot receieve a zap',
   },
   updateProfileSuccess: {

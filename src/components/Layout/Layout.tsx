@@ -29,6 +29,9 @@ import LayoutDesktop from './LayoutDesktop';
 import { isPhone } from '../../utils';
 import ArticleOverviewContextMenu from '../Note/ArticleOverviewContextMenu';
 import ArticleDraftContextMenu from '../Note/ArticleDraftContextMenu';
+import LiveStreamContextMenu from '../Note/LiveStreamContextMenu';
+import ProfileQrCodeModal from '../ProfileQrCodeModal/ProfileQrCodeModal';
+import ReportContentModal from '../ReportContentModal/ReportContentModal';
 
 export const [isHome, setIsHome] = createSignal(false);
 
@@ -146,6 +149,8 @@ const Layout: Component<any> = (props) => {
           note={app?.customZap?.note}
           profile={app?.customZap?.profile}
           dvm={app?.customZap?.dvm}
+          stream={app?.customZap?.stream}
+          streamAuthor={app?.customZap?.streamAuthor}
           onConfirm={app?.customZap?.onConfirm}
           onSuccess={app?.customZap?.onSuccess}
           onFail={app?.customZap?.onFail}
@@ -258,6 +263,12 @@ const Layout: Component<any> = (props) => {
           data={app?.noteContextMenuInfo}
         />
 
+        <LiveStreamContextMenu
+          open={app?.showStreamContextMenu}
+          onClose={app?.actions.closeStreamContextMenu}
+          data={app?.streamContextMenuInfo}
+        />
+
         <ArticleOverviewContextMenu
           open={app?.showArticleOverviewContextMenu}
           onClose={app?.actions.closeArticleOverviewContextMenu}
@@ -268,6 +279,17 @@ const Layout: Component<any> = (props) => {
           open={app?.showArticleDraftContextMenu}
           onClose={app?.actions.closeArticleDraftContextMenu}
           data={app?.articleDraftContextMenuInfo}
+        />
+
+        <ProfileQrCodeModal
+          open={app?.showProfileQr !== undefined}
+          onClose={app?.actions.closeProfileQr}
+          profile={app?.showProfileQr}
+        />
+
+        <ReportContentModal
+          note={app?.reportContent}
+          onClose={() => app?.actions.closeReportContent()}
         />
       </>
     </Show>

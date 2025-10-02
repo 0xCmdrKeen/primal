@@ -1,6 +1,7 @@
 import { TopicStat } from "../megaFeeds";
 import { convertToUser, userName } from "../stores/profile";
 import { EmojiOption, NostrRelays, NostrStats, PrimalArticleFeed, PrimalDVM, PrimalFeed, PrimalUser, SelectionOption, SenderMessageCount, UserRelation, UserStats } from "../types/primal";
+import { StreamingData } from "./streaming";
 
 export type LocalStore = {
   following: string[],
@@ -8,6 +9,9 @@ export type LocalStore = {
   muted: string[],
   mutedPrivate: string,
   mutedSince: number,
+  streamMuted: string[],
+  streamMutedPrivate: string,
+  streamMutedSince: number,
   relaySettings: NostrRelays,
   likes: string[],
   feeds: PrimalFeed[];
@@ -46,6 +50,8 @@ export type LocalStore = {
   nwc: string[][] | undefined,
   nwcActive: string[] | undefined,
   useSystemDarkMode: boolean | undefined,
+  liveStreams: StreamingData[] | undefined,
+  liveAuthors: PrimalUser[] | undefined,
 };
 
 export type UploadTime = {
@@ -70,6 +76,9 @@ export const emptyStorage: LocalStore = {
   muted: [],
   mutedPrivate: '',
   mutedSince: 0,
+  streamMuted: [],
+  streamMutedPrivate: '',
+  streamMutedSince: 0,
   relaySettings: {},
   likes: [],
   feeds: [],
@@ -99,6 +108,7 @@ export const emptyStorage: LocalStore = {
   nwc: [],
   nwcActive: undefined,
   useSystemDarkMode: false,
+  liveStreams: undefined,
 }
 
 export const storageName = (pubkey?: string) => {
@@ -169,6 +179,33 @@ export const saveMuted = (pubkey: string | undefined, muted: string[], since: nu
 
   store.muted = [...muted];
   store.mutedSince = since;
+
+  setStorage(pubkey, store);
+}
+
+export const saveStreamMuteList = (pubkey: string | undefined, muted: string[], mutedPrivate: string, since: number) => {
+  if (!pubkey) {
+    return;
+  }
+
+  const store = getStorage(pubkey);
+
+  store.streamMuted = [...muted];
+  store.streamMutedPrivate = mutedPrivate;
+  store.streamMutedSince = since;
+
+  setStorage(pubkey, store);
+}
+
+export const saveStreamMuted = (pubkey: string | undefined, muted: string[], since: number) => {
+  if (!pubkey) {
+    return;
+  }
+
+  const store = getStorage(pubkey);
+
+  store.streamMuted = [...muted];
+  store.streamMutedSince = since;
 
   setStorage(pubkey, store);
 }
@@ -759,4 +796,49 @@ export const saveNWCActive = (pubkey: string, name?: string, uri?: string) => {
   }
 
   setStorage(pubkey, store);
+};
+
+
+export const saveLiveStreams = (pubkey: string | undefined, streams: StreamingData[]) => {
+  if (!pubkey) {
+    return;
+  }
+
+  const store = getStorage(pubkey);
+
+  store.liveStreams = [...streams];
+
+  setStorage(pubkey, store);
+}
+
+
+export const loadLiveStreams = (pubkey: string | undefined) => {
+  if (!pubkey) {
+    return [];
+  }
+  const store = getStorage(pubkey);
+
+  return store.liveStreams || [];
+};
+
+export const saveLiveAuthors = (pubkey: string | undefined, streams: StreamingData[]) => {
+  if (!pubkey) {
+    return;
+  }
+
+  const store = getStorage(pubkey);
+
+  store.liveAuthors = [...streams];
+
+  setStorage(pubkey, store);
+}
+
+
+export const loadLiveAuthors = (pubkey: string | undefined) => {
+  if (!pubkey) {
+    return [];
+  }
+  const store = getStorage(pubkey);
+
+  return store.liveAuthors || [];
 };

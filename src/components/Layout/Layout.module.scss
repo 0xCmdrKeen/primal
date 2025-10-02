@@ -19,6 +19,14 @@
   grid-template-columns: var(--left-col-w) var(--center-col-w) var(--right-col-w);
 }
 
+.liveContainer {
+  width: var(--full-site-w);
+  margin: 0px auto;
+
+  display: grid;
+  grid-template-columns: 54px 756px var(--right-col-w);
+}
+
 .leftColumn {
   >div {
     position: fixed;
@@ -63,6 +71,24 @@
   }
 }
 
+.liveStreamLeft {
+  width: 54px;
+  height: 100vh;
+  >div {
+    border-right: none;
+  }
+}
+
+.liveStreamCenter {
+  position: relative;
+  width: calc(var(--full-site-w) - 54px);
+  min-height: 100vh;
+
+  .headerFloater {
+    left: 50%; /* Position the left edge of the element at the horizontal center of the viewport */
+    transform: translateX(-50%);
+  }
+}
 
 .centerColumn {
   position: relative;
@@ -113,6 +139,21 @@
       height: 85px;
       border-left: none;
     }
+  }
+}
+
+.rightColumnLive {
+  display: flex;
+  flex-direction: column;
+  width: var(--right-col-w);
+
+  >div {
+    position: fixed;
+    width: var(--right-col-w);
+    display: grid;
+    grid-template-rows: var(--header-height) 1fr 82px;
+    height: 100%;
+    border-left: 1px solid var(--devider);
   }
 }
 
@@ -322,7 +363,6 @@
       /* height: calc(100dvh - 54px - 48px); */
     }
   }
-
 
   .phoneFooter {
     height: 48px;

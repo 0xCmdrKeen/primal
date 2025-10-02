@@ -6,6 +6,8 @@ import { logError } from "../lib/logger";
 import { sanitize } from "../lib/notes";
 import { RepostInfo, NostrNoteContent, FeedPage, PrimalNote, PrimalRepost, NostrEventContent, NostrEOSE, NostrEvent, PrimalUser, TopZap, PrimalArticle, NostrRelaySignedEvent } from "../types/primal";
 import { convertToUser, emptyUser } from "./profile";
+import { StreamingData } from "../lib/streaming";
+import { encodeCoordinate } from "./megaFeed";
 
 
 export const getRepostInfo: RepostInfo = (page, message) => {
@@ -383,6 +385,7 @@ export const convertToNotes: ConvertToNotes = (page, topZaps) => {
     let mentionedUsers: Record<string, PrimalUser> = {};
     let mentionedHighlights: Record<string, any> = {};
     let mentionedArticles: Record<string, PrimalArticle> = {};
+    let mentionedLiveEvents: Record<string, StreamingData> = {};
 
     if (mentionIds.length > 0) {
       for (let i = 0;i<mentionIds.length;i++) {
@@ -473,6 +476,8 @@ export const convertToNotes: ConvertToNotes = (page, topZaps) => {
 
           const wordCount = page.wordCount ? page.wordCount[m.id] || 0 : 0;
 
+          const naddr = nip19.naddrEncode({ identifier, pubkey, kind });
+
           let article: PrimalArticle = {
             id: m.id,
             pubkey: m.pubkey,
@@ -482,10 +487,10 @@ export const convertToNotes: ConvertToNotes = (page, topZaps) => {
             tags: [],
             published: m.created_at || 0,
             content: sanitize(m.content || ''),
-            user: convertToUser(user, m.pubkey),
+            user: convertToUser(page.users[m.pubkey], m.pubkey),
             topZaps: [...tz],
-            naddr: nip19.naddrEncode({ identifier, pubkey, kind }),
-            noteId: nip19.naddrEncode({ identifier, pubkey, kind }),
+            naddr,
+            noteId: naddr,
             coordinate: `${kind}:${pubkey}:${identifier}`,
             msg: m,
             mentionedNotes,
@@ -537,6 +542,29 @@ export const convertToNotes: ConvertToNotes = (page, topZaps) => {
             user: convertToUser(page.users[m.pubkey], m.pubkey),
             event: { ...m },
           }
+        }
+
+        if ([Kind.LiveEvent].includes(m.kind)) {
+          const { coordinate, naddr } = encodeCoordinate(m, Kind.LiveEvent);
+          const [kind, pubkey, identifier] = coordinate.split(':');
+          const naddrShort = nip19.naddrEncode({ kind: parseInt(kind), pubkey, identifier });
+
+          const streamData = {
+            id: (m.tags?.find((t: string[]) => t[0] === 'd') || [])[1],
+            url: (m.tags?.find((t: string[]) => t[0] === 'streaming') || [])[1],
+            image: (m.tags?.find((t: string[]) => t[0] === 'image') || [])[1],
+            status: (m.tags?.find((t: string[]) => t[0] === 'status') || [])[1],
+            starts: parseInt((m.tags?.find((t: string[]) => t[0] === 'starts') || ['', '0'])[1]),
+            summary: (m.tags?.find((t: string[]) => t[0] === 'summary') || [])[1],
+            title: (m.tags?.find((t: string[]) => t[0] === 'title') || [])[1],
+            client: (m.tags?.find((t: string[]) => t[0] === 'client') || [])[1],
+            currentParticipants: parseInt((m.tags?.find((t: string[]) => t[0] === 'current_participants') || ['', '0'])[1] || '0'),
+            pubkey: m.pubkey,
+            hosts: (m.tags || []).filter(t => t[0] === 'p' && t[3].toLowerCase() === 'host').map(t => t[1]),
+            participants: (m.tags || []).filter(t => t[0] === 'p').map(t => t[1]),
+          };
+
+          mentionedLiveEvents[naddr] = { ...streamData };
         }
 
       }
@@ -611,6 +639,7 @@ export const convertToNotes: ConvertToNotes = (page, topZaps) => {
       mentionedUsers,
       mentionedHighlights,
       mentionedArticles,
+      mentionedLiveEvents,
       replyTo: replyTo && replyTo[1],
       tags: msg.tags,
       id: msg.id,
@@ -643,7 +672,7 @@ export const convertToArticles: ConvertToArticles = (page, topZaps) => {
     const pubkey = msg.pubkey;
     const identifier = (msg.tags.find(t => t[0] === 'd') || [])[1];
     const kind = Kind.LongForm;
-    const relays = (event.tags || []).reduce<string[]>((acc, t) => t[0] === 'r' && acc.length < 2 ? [...acc, t[1]] : acc, []);
+    const relays = (msg.tags || []).reduce<string[]>((acc, t) => t[0] === 'r' && acc.length < 2 ? [...acc, t[1]] : acc, []);
 
     const naddr = nip19.naddrEncode({ identifier, pubkey, kind, relays });
 
@@ -669,6 +698,7 @@ export const convertToArticles: ConvertToArticles = (page, topZaps) => {
     let mentionedUsers: Record<string, PrimalUser> = {};
     let mentionedHighlights: Record<string, any> = {};
     let mentionedArticles: Record<string, PrimalArticle> = {};
+    let mentionedLiveEvents: Record<string, StreamingData> = {};
 
     if (mentionIds.length > 0) {
       for (let i = 0;i<mentionIds.length;i++) {
@@ -772,6 +802,7 @@ export const convertToArticles: ConvertToArticles = (page, topZaps) => {
             msg: m,
             mentionedNotes,
             mentionedUsers,
+            mentionedLiveEvents,
             wordCount,
             noteActions,
             bookmarks: stat?.bookmarks || 0,
@@ -822,6 +853,29 @@ export const convertToArticles: ConvertToArticles = (page, topZaps) => {
           }
         }
 
+        if ([Kind.LiveEvent].includes(m.kind)) {
+          const { coordinate, naddr } = encodeCoordinate(m, Kind.LiveEvent);
+          const [kind, pubkey, identifier] = coordinate.split(':');
+          const naddrShort = nip19.naddrEncode({ kind: parseInt(kind), pubkey, identifier });
+
+          const streamData = {
+            id: (m.tags?.find((t: string[]) => t[0] === 'd') || [])[1],
+            url: (m.tags?.find((t: string[]) => t[0] === 'streaming') || [])[1],
+            image: (m.tags?.find((t: string[]) => t[0] === 'image') || [])[1],
+            status: (m.tags?.find((t: string[]) => t[0] === 'status') || [])[1],
+            starts: parseInt((m.tags?.find((t: string[]) => t[0] === 'starts') || ['', '0'])[1]),
+            summary: (m.tags?.find((t: string[]) => t[0] === 'summary') || [])[1],
+            title: (m.tags?.find((t: string[]) => t[0] === 'title') || [])[1],
+            client: (m.tags?.find((t: string[]) => t[0] === 'client') || [])[1],
+            currentParticipants: parseInt((m.tags?.find((t: string[]) => t[0] === 'current_participants') || ['', '0'])[1] || '0'),
+            pubkey: m.pubkey,
+            hosts: (m.tags || []).filter(t => t[0] === 'p' && t[3].toLowerCase() === 'host').map(t => t[1]),
+            participants: (m.tags || []).filter(t => t[0] === 'p').map(t => t[1]),
+          };
+
+          mentionedLiveEvents[naddr] = { ...streamData };
+        }
+
       }
     }
 
@@ -858,6 +912,7 @@ export const convertToArticles: ConvertToArticles = (page, topZaps) => {
       mentionedUsers,
       mentionedHighlights,
       mentionedArticles,
+      mentionedLiveEvents,
       wordCount,
       noteActions: (page.noteActions && page.noteActions[msg.id]) ?? noActions(msg.id),
       bookmarks: stat?.bookmarks || 0,
@@ -898,6 +953,44 @@ export const convertToArticles: ConvertToArticles = (page, topZaps) => {
     });
 
     return article;
+  });
+}
+
+type ConvertToLiveEvents = (page: FeedPage | undefined) => StreamingData[];
+
+export const convertToLiveEvents: ConvertToLiveEvents = (page) => {
+
+  if (page === undefined) {
+    return [];
+  }
+
+  const pageMessages = page.messages.filter(m => [Kind.LiveEvent].includes(m.kind));
+
+  return  pageMessages.map((message) => {
+
+    const msg: NostrNoteContent = message;
+
+    const pubkey = msg.pubkey;
+    const identifier = (msg.tags.find(t => t[0] === 'd') || [])[1];
+    const kind = Kind.LiveEvent;
+    const relays = (msg.tags || []).reduce<string[]>((acc, t) => t[0] === 'r' && acc.length < 2 ? [...acc, t[1]] : acc, []);
+
+    const naddr = nip19.naddrEncode({ identifier, pubkey, kind, relays });
+
+    return {
+      id: (msg.tags?.find((t: string[]) => t[0] === 'd') || [])[1],
+      url: (msg.tags?.find((t: string[]) => t[0] === 'streaming') || [])[1],
+      image: (msg.tags?.find((t: string[]) => t[0] === 'image') || [])[1],
+      status: (msg.tags?.find((t: string[]) => t[0] === 'status') || [])[1],
+      starts: parseInt((msg.tags?.find((t: string[]) => t[0] === 'starts') || ['', '0'])[1]),
+      summary: (msg.tags?.find((t: string[]) => t[0] === 'summary') || [])[1],
+      title: (msg.tags?.find((t: string[]) => t[0] === 'title') || [])[1],
+      client: (msg.tags?.find((t: string[]) => t[0] === 'client') || [])[1],
+      currentParticipants: parseInt((msg.tags?.find((t: string[]) => t[0] === 'current_participants') || ['', '0'])[1] || '0'),
+      pubkey: msg.pubkey,
+      hosts: (msg.tags || []).filter(t => t[0] === 'p' && t[3].toLowerCase() === 'host').map(t => t[1]),
+      participants: (msg.tags || []).filter(t => t[0] === 'p').map(t => t[1]),
+    };
   });
 }
 

@@ -7,7 +7,7 @@ import {
   onMount,
   useContext
 } from "solid-js";
-import { MediaEvent, MediaVariant, NostrBlossom, NostrEOSE, NostrEvent, NostrEventContent, NostrEvents, PrimalArticle, PrimalDVM, PrimalNote, PrimalUser, ZapOption } from "../types/primal";
+import { MediaEvent, MediaVariant, NostrBlossom, NostrEOSE, NostrEvent, NostrEventContent, NostrEvents, NostrLiveChat, PrimalArticle, PrimalDVM, PrimalNote, PrimalUser, ZapOption } from "../types/primal";
 import { CashuMint } from "@cashu/cashu-ts";
 import { Tier, TierCost } from "../components/SubscribeToAuthorModal/SubscribeToAuthorModal";
 import { connect, disconnect, isConnected, isNotConnected, readData, refreshSocketListeners, removeSocketListeners, socket } from "../sockets";
@@ -16,6 +16,7 @@ import { logInfo } from "../lib/logger";
 import { Kind } from "../constants";
 import { LegendCustomizationConfig } from "../lib/premium";
 import { config } from "@milkdown/core";
+import { StreamingData } from "../lib/streaming";
 
 
 export type ReactionStats = {
@@ -30,6 +31,8 @@ export type CustomZapInfo = {
   profile?: PrimalUser,
   note?: PrimalNote | PrimalArticle,
   dvm?: PrimalDVM,
+  stream?: StreamingData,
+  streamAuthor?: PrimalUser,
   onConfirm: (zapOption: ZapOption) => void,
   onSuccess: (zapOption: ZapOption) => void,
   onFail: (zapOption: ZapOption) => void,
@@ -69,6 +72,13 @@ export type CohortInfo = {
   premium_since?: number,
 };
 
+export type LiveStreamContextMenuInfo = {
+  stream: StreamingData,
+  streamAuthor: PrimalUser,
+  position: DOMRect | undefined,
+  onDelete?: (id: string) => void,
+};
+
 export type AppContextStore = {
   events: Record<number, NostrEventContent[]>,
   isInactive: boolean,
@@ -79,6 +89,8 @@ export type AppContextStore = {
   customZap: CustomZapInfo | undefined,
   showNoteContextMenu: boolean,
   noteContextMenuInfo: NoteContextMenuInfo | undefined,
+  showStreamContextMenu: boolean,
+  streamContextMenuInfo: LiveStreamContextMenuInfo | undefined,
   showArticleOverviewContextMenu: boolean,
   articleOverviewContextMenuInfo: NoteContextMenuInfo | undefined,
   showArticleDraftContextMenu: boolean,
@@ -96,6 +108,8 @@ export type AppContextStore = {
   verifiedUsers: Record<string, string>,
   legendCustomization: Record<string, LegendCustomizationConfig>,
   memberCohortInfo: Record<string, CohortInfo>,
+  showProfileQr: PrimalUser | undefined,
+  reportContent: PrimalNote | PrimalArticle | NostrLiveChat | undefined,
   actions: {
     openReactionModal: (noteId: string, stats: ReactionStats) => void,
     closeReactionModal: () => void,
@@ -109,6 +123,13 @@ export type AppContextStore = {
       openReaction: () => void,
       onDelete: (id: string) => void,
     ) => void,
+    openStreamContextMenu: (
+      stream: StreamingData,
+      streamAuthor: PrimalUser,
+      position: DOMRect | undefined,
+      onDelete: (id: string) => void,
+    ) => void,
+    closeStreamContextMenu: () => void,
     closeContextMenu: () => void,
     openArticleOverviewContextMenu: (
       note: PrimalArticle,
@@ -137,9 +158,13 @@ export type AppContextStore = {
     closeAuthorSubscribeModal: () => void,
     addConnectedRelay: (relay: Relay) => void,
     removeConnectedRelay: (relay: Relay) => void,
-    profileLink: (pubkey: string | undefined) => string,
+    profileLink: (pubkey: string | undefined, noP?: boolean) => string,
     setLegendCustomization: (pubkey: string, config: LegendCustomizationConfig) => void,
     getUserBlossomUrls: (pubkey: string) => string[],
+    openProfileQr: (user: PrimalUser) => void,
+    closeProfileQr: () => void,
+    openReportContent: (content: PrimalNote | PrimalArticle | NostrLiveChat) => void,
+    closeReportContent: () => void,
   },
 }
 
@@ -163,6 +188,8 @@ const initialData: Omit<AppContextStore, 'actions'> = {
   articleOverviewContextMenuInfo: undefined,
   showArticleDraftContextMenu: false,
   articleDraftContextMenuInfo: undefined,
+  showStreamContextMenu: false,
+  streamContextMenuInfo: undefined,
   showLnInvoiceModal: false,
   lnbc: undefined,
   showCashuInvoiceModal: false,
@@ -176,6 +203,8 @@ const initialData: Omit<AppContextStore, 'actions'> = {
   legendCustomization: {},
   memberCohortInfo: {},
   subscribeToTier: () => {},
+  showProfileQr: undefined,
+  reportContent: undefined,
 };
 
 export const AppContext = createContext<AppContextStore>();
@@ -239,6 +268,21 @@ export const AppProvider = (props: { children: JSXElement }) => {
       onDelete,
     }))
     updateStore('showNoteContextMenu', () => true);
+  };
+
+  const openStreamContextMenu = (
+    stream: StreamingData,
+    streamAuthor: PrimalUser,
+    position: DOMRect | undefined,
+    onDelete: (id: string) => void,
+  ) => {
+    updateStore('streamContextMenuInfo', reconcile({
+      stream,
+      streamAuthor,
+      position,
+      onDelete,
+    }))
+    updateStore('showStreamContextMenu', () => true);
   };
 
   const openArticleOverviewContextMenu = (
@@ -318,6 +362,10 @@ export const AppProvider = (props: { children: JSXElement }) => {
     updateStore('showNoteContextMenu', () => false);
   };
 
+  const closeStreamContextMenu = () => {
+    updateStore('showStreamContextMenu', () => false);
+  };
+
   const closeArticleOverviewContextMenu = () => {
     updateStore('showArticleOverviewContextMenu', () => false);
   };
@@ -358,7 +406,7 @@ export const AppProvider = (props: { children: JSXElement }) => {
     updateStore('connectedRelays', (rs) => rs.filter(r => r.url !== relay.url));
   };
 
-  const profileLink = (pubkey: string | undefined) => {
+  const profileLink = (pubkey: string | undefined, noP?: boolean) => {
     if (!pubkey) return '/home';
 
     let pk = `${pubkey}`;
@@ -374,9 +422,9 @@ export const AppProvider = (props: { children: JSXElement }) => {
 
     try {
       const npub = nip19.nprofileEncode({ pubkey: pk });
-      return `/p/${npub}`;
+      return `/${noP ? '' : 'p/'}${npub}`;
     } catch (e) {
-      return `/p/${pk}`;
+      return `/${noP ? '' : 'p/'}${pk}`;
     }
 
   }
@@ -393,6 +441,22 @@ export const AppProvider = (props: { children: JSXElement }) => {
     return blossom.tags.reduce<string[]>((acc, t) => {
       return t[0] === 'server' ? [ ...acc, t[1]] : acc;
     }, []);
+  }
+
+  const openProfileQr = (user: PrimalUser) => {
+    updateStore('showProfileQr', () => ({ ...user }));
+  }
+
+  const closeProfileQr = () => {
+    updateStore('showProfileQr', () => undefined);
+  }
+
+  const openReportContent = (user: PrimalNote | PrimalArticle | NostrLiveChat) => {
+    updateStore('reportContent', () => ({ ...user }));
+  }
+
+  const closeReportContent = () => {
+    updateStore('reportContent', () => undefined);
   }
 
 
@@ -543,7 +607,9 @@ const onSocketClose = (closeEvent: CloseEvent) => {
       closeCustomZapModal,
       resetCustomZap,
       openContextMenu,
+      openStreamContextMenu,
       closeContextMenu,
+      closeStreamContextMenu,
       openArticleOverviewContextMenu,
       closeArticleOverviewContextMenu,
       openArticleDraftContextMenu,
@@ -562,6 +628,10 @@ const onSocketClose = (closeEvent: CloseEvent) => {
       profileLink,
       setLegendCustomization,
       getUserBlossomUrls,
+      openProfileQr,
+      closeProfileQr,
+      openReportContent,
+      closeReportContent,
     }
   });
 

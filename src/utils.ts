@@ -536,3 +536,42 @@ export const urlEncode = (text: string) => {
         char => '%' + char.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')
     );
 };
+
+export const replaceAsync = async(str: string, regex: RegExp, asyncReplacer: (m: string) => Promise<string>) => {
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(str)) !== null) {
+    // Push the non-matching part
+    parts.push(str.slice(lastIndex, match.index));
+
+    // Push the promise returned by the async replacer
+    parts.push(asyncReplacer(match[0]));
+
+    lastIndex = regex.lastIndex;
+
+    // Handle zero-length matches for global regex
+    if (match[0].length === 0) {
+      regex.lastIndex++;
+    }
+  }
+
+  // Push the remaining part of the string
+  parts.push(str.slice(lastIndex));
+
+  // Wait for all promises to resolve and then join the parts
+  return (await Promise.all(parts)).join('');
+}
+
+export const findFirstDifference = (arr1: string[], arr2: string[]) => {
+  const maxLength = Math.max(arr1.length, arr2.length);
+
+  for (let i = 0; i < maxLength; i++) {
+    if (arr1[i] !== arr2[i]) {
+      return i;
+    }
+  }
+
+  return -1;
+}

@@ -11,6 +11,7 @@ import { SendNoteResult } from '../../types/primal';
 import Branding from '../Branding/Branding';
 import { useAppContext } from '../../contexts/AppContext';
 import NoteContextMenu from '../Note/NoteContextMenu';
+import LiveNavMenu from '../NavMenu/LiveNavMenu';
 
 export const [isHome, setIsHome] = createSignal(false);
 
@@ -39,6 +40,7 @@ const LayoutDesktop: Component<{
 
   const containerClass = () => {
     if (location.pathname.startsWith('/e/naddr') || location.pathname.startsWith('/a/naddr')) return styles.containerLF;
+    if (location.pathname.includes('/live')) return styles.liveContainer
 
     return styles.container;
   }
@@ -53,43 +55,82 @@ const LayoutDesktop: Component<{
     >
       <>
         <div id="container" ref={container} class={containerClass()}>
-          <div class={styles.leftColumn}>
-            <div>
-              <div id="branding_holder" class={styles.leftHeader}>
-                <Branding isHome={isHome()} />
-              </div>
-
-              <div class={styles.leftContent}>
-                <NavMenu />
-                <Show when={location.pathname === '/new'}>
-                  <div class={styles.overlay}></div>
-                </Show>
-              </div>
-
-              <div class={styles.leftFooter}>
-                <Show when={location.pathname !== '/new'}>
-                  <ProfileWidget />
-                </Show>
-              </div>
-            </div>
-          </div>
-
-
-          <div class={styles.centerColumn}>
-            <Show when={account?.isKeyLookupDone}>
-              <div class={styles.centerContent}>
-                <div id="new_note_input" class={styles.headerFloater}>
-                  <NewNote onSuccess={props.onNewNotePosted}/>
-                </div>
-
+          <Switch>
+            <Match when={location.pathname.includes('/live/')}>
+              <div class={`${styles.leftColumn} ${styles.liveStreamLeft}`}>
                 <div>
-                  {props.children}
+                  <div id="branding_holder" class={styles.leftHeader}>
+                    <Branding isHome={isHome()} small={true} />
+                  </div>
+
+                  <div class={styles.leftContent}>
+                    <LiveNavMenu />
+                  </div>
+
+                  <div class={styles.leftFooter}>
+                    <Show when={location.pathname !== '/new'}>
+                      <ProfileWidget hideName={true} />
+                    </Show>
+                  </div>
                 </div>
               </div>
+            </Match>
+
+            <Match when={true}>
+              <div class={styles.leftColumn}>
+                <div>
+                  <div id="branding_holder" class={styles.leftHeader}>
+                    <Branding isHome={isHome()} />
+                  </div>
+
+                  <div class={styles.leftContent}>
+                    <NavMenu />
+                    <Show when={location.pathname === '/new'}>
+                      <div class={styles.overlay}></div>
+                    </Show>
+                  </div>
+
+                  <div class={styles.leftFooter}>
+                    <Show when={location.pathname !== '/new'}>
+                      <ProfileWidget />
+                    </Show>
+                  </div>
+                </div>
+              </div>
+            </Match>
+          </Switch>
+
+            <Show when={account?.isKeyLookupDone}>
+              <Switch>
+                <Match when={location.pathname.includes('/live')}>
+                  <div class={styles.liveStreamCenter}>
+                    <div id="new_note_input" class={styles.headerFloater}>
+                      <NewNote onSuccess={props.onNewNotePosted}/>
+                    </div>
+                    {props.children}
+                  </div>
+                </Match>
+
+                <Match when={true}>
+                  <div class={styles.centerColumn}>
+                    <div class={styles.centerContent}>
+                      <div id="new_note_input" class={styles.headerFloater}>
+                        <NewNote onSuccess={props.onNewNotePosted}/>
+                      </div>
+
+                      <div>
+                        {props.children}
+                      </div>
+                    </div>
+                  </div>
+                </Match>
+              </Switch>
             </Show>
-          </div>
 
           <Switch>
+            <Match when={location.pathname.includes('/live/')}>
+              <></>
+            </Match>
             <Match when={location.pathname.startsWith('/messages') || location.pathname.startsWith('/dms')}>
               <div class={`${styles.rightColumn} ${styles.messagesColumn}`}>
                 <div>

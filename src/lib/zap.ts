@@ -1,29 +1,30 @@
 import { bech32 } from "@scure/base";
-import { nip04, nip47, nip57, Relay, relayInit, utils } from "../lib/nTools";
+import { nip04, nip19, nip47, nip57, Relay, relayInit, utils } from "../lib/nTools";
 import { Tier } from "../components/SubscribeToAuthorModal/SubscribeToAuthorModal";
 import { Kind } from "../constants";
-import { NostrRelaySignedEvent, PrimalArticle, PrimalDVM, PrimalNote, PrimalUser } from "../types/primal";
+import { MegaFeedPage, NostrRelaySignedEvent, NostrUserZaps, PrimalArticle, PrimalDVM, PrimalNote, PrimalUser, PrimalZap, TopZap } from "../types/primal";
 import { logError } from "./logger";
 import { decrypt, enableWebLn, encrypt, sendPayment, signEvent } from "./nostrAPI";
 import { decodeNWCUri } from "./wallet";
-import { hexToBytes } from "../utils";
+import { hexToBytes, parseBolt11 } from "../utils";
+import { convertToUser } from "../stores/profile";
+import { StreamingData } from "./streaming";
 
 export let lastZapError: string = "";
 
 export const zapOverNWC = async (pubkey: string, nwcEnc: string, invoice: string) => {
-  const nwc = await decrypt(pubkey, nwcEnc);
-
-  const nwcConfig = decodeNWCUri(nwc);
-
-  const request = await nip47.makeNwcRequestEvent(nwcConfig.pubkey, hexToBytes(nwcConfig.secret), invoice)
-
-  if (nwcConfig.relays.length === 0) return false;
-
   let promises: Promise<boolean>[] = [];
   let relays: Relay[] = [];
   let result: boolean = false;
-
   try {
+    const nwc = await decrypt(pubkey, nwcEnc);
+
+    const nwcConfig = decodeNWCUri(nwc);
+
+    const request = await nip47.makeNwcRequestEvent(nwcConfig.pubkey, hexToBytes(nwcConfig.secret), invoice)
+
+    if (nwcConfig.relays.length === 0) return false;
+
     for (let i = 0; i < nwcConfig.relays.length; i++) {
       const relay = relayInit(nwcConfig.relays[i]);
 
@@ -72,6 +73,7 @@ export const zapOverNWC = async (pubkey: string, nwcEnc: string, invoice: string
         );
       }));
     }
+
     result = await Promise.any(promises);
   }
   catch (e: any) {
@@ -397,6 +399,71 @@ export const zapDVM = async (
   }
 }
 
+export const zapStream = async (
+  stream: StreamingData,
+  host: PrimalUser | undefined,
+  sender: string | undefined,
+  amount: number,
+  comment = '',
+  relays: Relay[],
+  nwc?: string[],
+) => {
+  if (!sender || !host) {
+    return { success: false };
+  }
+
+  const callback = await getZapEndpoint(host);
+
+  if (!callback) {
+    return { success: false };
+  }
+
+  const a = `${Kind.LiveEvent}:${stream.pubkey}:${stream.id}`;
+
+  const sats = Math.round(amount * 1000);
+
+  let payload = {
+    profile: host.pubkey,
+    event: stream.event?.id || null,
+    amount: sats,
+    relays: relays.map(r => r.url),
+  };
+
+  if (comment.length > 0) {
+    // @ts-ignore
+    payload.comment = comment;
+  }
+
+  const zapReq = nip57.makeZapRequest(payload);
+
+  if (!zapReq.tags.find((t: string[]) => t[0] === 'a' && t[1] === a)) {
+    zapReq.tags.push(['a', a]);
+  }
+
+  try {
+    const signedEvent = await signEvent(zapReq);
+
+    const event = encodeURIComponent(JSON.stringify(signedEvent));
+
+    const r2 = await (await fetch(`${callback}?amount=${sats}&nostr=${event}`)).json();
+    const pr = r2.pr;
+
+    if (nwc && nwc[1] && nwc[1].length > 0) {
+      const success = await zapOverNWC(sender, nwc[1], pr);
+
+      return { success: true, event: signedEvent }
+    }
+
+    await enableWebLn();
+    await sendPayment(pr);
+
+    return { success: true, event: signEvent };
+  } catch (reason) {
+    console.error('Failed to zap: ', reason);
+    return { sucess: false };
+  }
+}
+
 export const getZapEndpoint = async (user: PrimalUser): Promise<string | null>  => {
   try {
     let lnurl: string = ''
@@ -439,4 +506,28 @@ export const getZapEndpoint = async (user: PrimalUser): Promise<string | null>  
 
 export const canUserReceiveZaps = (user: PrimalUser | undefined) => {
   return !!user && (!!user.lud16 || !!user.lud06);
+}
+
+export const convertToZap = (zapContent: NostrUserZaps) => {
+
+  const bolt11 = (zapContent.tags.find(t => t[0] === 'bolt11') || [])[1];
+  const zapEvent = JSON.parse((zapContent.tags.find(t => t[0] === 'description') || [])[1] || '{}');
+  const senderPubkey = zapEvent.pubkey as string;
+  const receiverPubkey = zapEvent.tags.find((t: string[]) => t[0] === 'p')[1] as string;
+
+  let zappedId = '';
+  let zappedKind: number = 0;
+
+  const zap: PrimalZap = {
+    id: zapContent.id,
+    message: zapEvent.content || '',
+    amount: parseBolt11(bolt11) || 0,
+    sender: senderPubkey,
+    reciver: receiverPubkey,
+    created_at: zapContent.created_at,
+    zappedId,
+    zappedKind,
+  };
+
+  return zap;
 }
